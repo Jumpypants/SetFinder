@@ -1,9 +1,9 @@
 package Filters;
 
-public class Pose2d {
+public class Pixel {
     public final int r, c;
 
-    public Pose2d(int r, int c) {
+    public Pixel(int r, int c) {
         this.r = r;
         this.c = c;
     }

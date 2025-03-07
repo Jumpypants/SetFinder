@@ -1,18 +1,16 @@
 package Filters;
 
-import core.DImage;
-
 import java.util.ArrayList;
 
 public class Blob {
-    private final Pose2d[] pixels;
+    private final Pixel[] pixels;
 
-    public Pose2d topLeft;
-    public Pose2d topRight;
-    public Pose2d bottomLeft;
-    public Pose2d bottomRight;
+    public Pixel topLeft;
+    public Pixel topRight;
+    public Pixel bottomLeft;
+    public Pixel bottomRight;
 
-    public Blob(Pose2d[] pixels) {
+    public Blob(Pixel[] pixels) {
         this.pixels = pixels;
 
         // Find the 4 corners of the blob
@@ -21,7 +19,7 @@ public class Blob {
         bottomLeft = pixels[0];
         bottomRight = pixels[0];
 
-        for (Pose2d pixel : pixels) {
+        for (Pixel pixel : pixels) {
             if (pixel.c + pixel.r < topLeft.c + topLeft.r) {
                 topLeft = pixel;
             }
@@ -42,17 +40,14 @@ public class Blob {
 
         // Count the number of pixels in the blob that are outside the quadrilateral
         int outsideCount = 0;
-        for (Pose2d pixel : pixels) {
+        for (Pixel pixel : pixels) {
             if (!isInsideQuadrilateral(pixel, topLeft, topRight, bottomLeft, bottomRight)) {
                 outsideCount++;
             }
         }
 
-        System.out.println("Outside count: " + outsideCount);
 
         double score = getScore(outsideCount);
-
-        System.out.println("Score: " + score);
 
         return score >= threshold;
     }
@@ -61,13 +56,13 @@ public class Blob {
         return 1 - (double) outsideCount / pixels.length;
     }
 
-    private boolean isInsideQuadrilateral(Pose2d pixel, Pose2d topLeft, Pose2d topRight, Pose2d bottomLeft, Pose2d bottomRight) {
+    private boolean isInsideQuadrilateral(Pixel pixel, Pixel topLeft, Pixel topRight, Pixel bottomLeft, Pixel bottomRight) {
         // Check if the pixel is inside the quadrilateral
         return isInsideTriangle(pixel, topLeft, topRight, bottomLeft)
                 || isInsideTriangle(pixel, topRight, bottomRight, bottomLeft);
     }
 
-    private boolean isInsideTriangle(Pose2d pixel, Pose2d a, Pose2d b, Pose2d c) {
+    private boolean isInsideTriangle(Pixel pixel, Pixel a, Pixel b, Pixel c) {
         // Check if the pixel is inside the triangle
         double areaOfTriangle = Math.abs((a.c * (b.r - c.r) + b.c * (c.r - a.r) + c.c * (a.r - b.r)) / 2);
         double area1 = Math.abs((a.c * (b.r - pixel.r) + b.c * (pixel.r - a.r) + pixel.c * (a.r - b.r)) / 2);
@@ -82,8 +77,8 @@ public class Blob {
         for (int r = 0; r < mask.length; r++) {
             for (int c = 0; c < mask[r].length; c++) {
                 if (mask[r][c]) {
-                    ArrayList<Pose2d> pixels = floodFill(mask, r, c);
-                    blobs.add(new Blob(pixels.toArray(new Pose2d[0])));
+                    ArrayList<Pixel> pixels = floodFill(mask, r, c);
+                    blobs.add(new Blob(pixels.toArray(new Pixel[0])));
                 }
             }
         }
@@ -98,13 +93,13 @@ public class Blob {
         return blobs;
     }
 
-    private static ArrayList<Pose2d> floodFill(boolean[][] mask, int r, int c) {
-        ArrayList<Pose2d> pixels = new ArrayList<>();
-        ArrayList<Pose2d> toCheck = new ArrayList<>();
-        toCheck.add(new Pose2d(r, c));
+    private static ArrayList<Pixel> floodFill(boolean[][] mask, int r, int c) {
+        ArrayList<Pixel> pixels = new ArrayList<>();
+        ArrayList<Pixel> toCheck = new ArrayList<>();
+        toCheck.add(new Pixel(r, c));
 
         while (!toCheck.isEmpty()) {
-            Pose2d pixel = toCheck.remove(0);
+            Pixel pixel = toCheck.remove(0);
 
             if (pixel.r < 0 || pixel.r >= mask.length || pixel.c < 0 || pixel.c >= mask[0].length) {
                 continue;
@@ -114,17 +109,17 @@ public class Blob {
                 pixels.add(pixel);
                 mask[pixel.r][pixel.c] = false;
 
-                toCheck.add(new Pose2d(pixel.r - 1, pixel.c));
-                toCheck.add(new Pose2d(pixel.r + 1, pixel.c));
-                toCheck.add(new Pose2d(pixel.r, pixel.c - 1));
-                toCheck.add(new Pose2d(pixel.r, pixel.c + 1));
+                toCheck.add(new Pixel(pixel.r - 1, pixel.c));
+                toCheck.add(new Pixel(pixel.r + 1, pixel.c));
+                toCheck.add(new Pixel(pixel.r, pixel.c - 1));
+                toCheck.add(new Pixel(pixel.r, pixel.c + 1));
             }
         }
 
         return pixels;
     }
 
-    public Pose2d[] getPixels() {
+    public Pixel[] getPixels() {
         return pixels;
     }
 }
