@@ -1,5 +1,7 @@
 package Filters;
 
+import core.DImage;
+
 import java.util.ArrayList;
 
 public class Blob {
@@ -36,8 +38,12 @@ public class Blob {
     }
 
     public boolean isQuadrilateral(double threshold) {
-        // Check if the pixels mostly conform to the quadrilateral made by the corners
+        double score = getQuadScore();
 
+        return score >= threshold;
+    }
+
+    public double getQuadScore() {
         // Count the number of pixels in the blob that are outside the quadrilateral
         int outsideCount = 0;
         for (Pixel pixel : pixels) {
@@ -46,13 +52,6 @@ public class Blob {
             }
         }
 
-
-        double score = getScore(outsideCount);
-
-        return score >= threshold;
-    }
-
-    private double getScore(int outsideCount) {
         return 1 - (double) outsideCount / pixels.length;
     }
 
@@ -121,5 +120,22 @@ public class Blob {
 
     public Pixel[] getPixels() {
         return pixels;
+    }
+
+    public Pixel[] getPixelsInQuadrilateral(DImage img) {
+        ArrayList<Pixel> pixels = new ArrayList<>();
+        for (int r = topLeft.r; r <= bottomRight.r; r++) {
+            for (int c = topLeft.c; c <= topRight.c; c++) {
+                if (isInsideQuadrilateral(new Pixel(r, c), topLeft, topRight, bottomLeft, bottomRight)) {
+                    pixels.add(new Pixel(r, c));
+                }
+            }
+        }
+
+        return pixels.toArray(new Pixel[0]);
+    }
+
+    public Pixel[] getQuadrilateralCorners() {
+        return new Pixel[]{topLeft, topRight, bottomLeft, bottomRight};
     }
 }

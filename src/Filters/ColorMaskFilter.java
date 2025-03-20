@@ -6,7 +6,7 @@ import core.DImage;
 public class ColorMaskFilter implements PixelFilter {
     @Override
     public DImage processImage(DImage img) {
-        return processImage(img, 200);
+        return processImage(img, 180);
     }
 
     public DImage processImage(DImage img, int threshold) {
