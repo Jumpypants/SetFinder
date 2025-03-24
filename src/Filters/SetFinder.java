@@ -4,11 +4,10 @@ import Interfaces.Interactive;
 import Interfaces.PixelFilter;
 import core.DImage;
 
-import javax.swing.*;
 import java.util.ArrayList;
 
 public class SetFinder implements PixelFilter, Interactive {
-    public static int colorThreshold;
+    public static int colorThreshold = 180;
     public static final int BLOB_MIN_SIZE = 5000;
     public static final double QUADRILATERAL_THRESHOLD = 0.5;
 
@@ -17,23 +16,25 @@ public class SetFinder implements PixelFilter, Interactive {
         DImage original = new DImage(img.getWidth(), img.getHeight());
         original.setColorChannels(img.getRedChannel().clone(), img.getGreenChannel().clone(), img.getBlueChannel().clone());
 
-        // Find the average brightness of the image
-        double avgBrightness = 0;
-        short[][] red = img.getRedChannel();
-        short[][] green = img.getGreenChannel();
-        short[][] blue = img.getBlueChannel();
+//        // Find the average brightness of the image
+//        double avgBrightness = 0;
+//        short[][] red = img.getRedChannel();
+//        short[][] green = img.getGreenChannel();
+//        short[][] blue = img.getBlueChannel();
+//
+//        for (int i = 0; i < red.length; i++) {
+//            for (int j = 0; j < red[i].length; j++) {
+//                avgBrightness += red[i][j] + green[i][j] + blue[i][j];
+//            }
+//        }
+//
+//        avgBrightness /= red.length * red[0].length * 3;
+//
+//        System.out.println("Average brightness: " + avgBrightness);
+//
+//        colorThreshold = (int) (avgBrightness * 0.37 + 124);
 
-        for (int i = 0; i < red.length; i++) {
-            for (int j = 0; j < red[i].length; j++) {
-                avgBrightness += red[i][j] + green[i][j] + blue[i][j];
-            }
-        }
-
-        avgBrightness /= red.length * red[0].length * 3;
-
-        System.out.println("Average brightness: " + avgBrightness);
-
-        colorThreshold = (int) (avgBrightness * 0.37 + 124);
+        Card.normalizeTo(img, new short[]{245, 245, 245});
 
         boolean[][] thresholdMask;
 
@@ -59,17 +60,24 @@ public class SetFinder implements PixelFilter, Interactive {
             matchedImages.add(card.getMatchedImages(5));
         }
 
-        DImage finalImage = new DImage(cardImages.get(0).getWidth() * (1 + matchedImages.get(0).size()), cardImages.get(0).getHeight() * cardImages.size());
+        if (cardImages.isEmpty()) {
+            return img;
+        }
+
+        DImage results = new DImage(cardImages.get(0).getWidth() * (1 + matchedImages.get(0).size()), cardImages.get(0).getHeight() * cardImages.size());
         for (int i = 0; i < cardImages.size(); i++) {
-            addImageToImage(finalImage, cardImages.get(i), i * cardImages.get(i).getHeight(), 0);
+            addImageToImage(results, cardImages.get(i), i * cardImages.get(i).getHeight(), 0);
             for (int j = 0; j < matchedImages.get(i).size(); j++) {
-                addImageToImage(finalImage, matchedImages.get(i).get(j), i * cardImages.get(i).getHeight(), cardImages.get(i).getWidth() * (j + 1));
+                addImageToImage(results, matchedImages.get(i).get(j), i * cardImages.get(i).getHeight(), cardImages.get(i).getWidth() * (j + 1));
             }
         }
 
-        addImageToImage(img, finalImage, 0, 0);
+        DImage finalImage = new DImage(results.getWidth() + img.getWidth(), Math.max(results.getHeight(), img.getHeight()));
 
-        return img;
+        addImageToImage(finalImage, results, 0, 0);
+        addImageToImage(finalImage, img, 0, results.getWidth());
+
+        return finalImage;
     }
 
     private static ArrayList<Blob> getBlobs(DImage img, boolean[][] thresholdMask) {

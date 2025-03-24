@@ -29,9 +29,9 @@ public class Card {
         }
     }
 
-    public static short normalizeR = 200;
-    public static short normalizeG = 200;
-    public static short normalizeB = 200;
+    public static short normalizeR = 245;
+    public static short normalizeG = 245;
+    public static short normalizeB = 245;
 
     public String[] numbers = {"one", "two", "three"};
     public String[] shapes = {"diamond", "squiggle", "oval"};
@@ -45,7 +45,7 @@ public class Card {
 
     public Card(Blob blob, DImage img) {
         this.blob = blob;
-        projected = blurImage(project(img, 75, 50));
+        projected = blurImage(project(img, 75, 50), 2);
         analyze();
     }
 
@@ -67,7 +67,7 @@ public class Card {
 
                             int sum = 0, count = 0;
                             for (int i = 0; i < Math.min(10, files.length); i++) {
-                                sum += getScore(normalizeTo(new DImage(files[i].getPath()), new short[] { normalizeR, normalizeG, normalizeB }));
+                                sum += (int) getScore(normalizeTo(new DImage(files[i].getPath()), new short[] { normalizeR, normalizeG, normalizeB }));
                                 count++;
                             }
 
@@ -96,58 +96,119 @@ public class Card {
         this.dataBaseCards = dataBaseCards.get();
     }
 
-    private int getScore(DImage img) {
+    private double getScore(DImage img) {
         DImage scaled = scaleImage(img, projected.getWidth(), projected.getHeight());
-        int score = 0;
 
-        for (int r = 0; r < projected.getHeight(); r += 3) {
-            for (int c = 0; c < projected.getWidth(); c += 3) {
-                score += Math.abs(projected.getRedChannel()[r][c] - scaled.getRedChannel()[r][c]);
-                score += Math.abs(projected.getGreenChannel()[r][c] - scaled.getGreenChannel()[r][c]);
-                score += Math.abs(projected.getBlueChannel()[r][c] - scaled.getBlueChannel()[r][c]);
+        // Use K-Neighbor distance to compare images
+        double distScore = kNeighborDist(scaled);
+
+        // trace the left edge of the both images and compare how far they are from each other
+        int[] projectedLeftEdge = new int[projected.getHeight()];
+        int[] scaledLeftEdge = new int[projected.getHeight()];
+
+        int sum = 0;
+
+        for (int r = 0; r < projected.getHeight(); r++) {
+            for (int c = 0; c < projected.getWidth(); c++) {
+                if (projected.getRedChannel()[r][c] < 200) {
+                    projectedLeftEdge[r] = c;
+                    sum += c;
+                    break;
+                }
             }
         }
 
-        return score;
+        int avg = sum / projected.getHeight();
+
+        for (int r = 0; r < projected.getHeight(); r++) {
+            projectedLeftEdge[r] -= avg;
+        }
+
+        sum = 0;
+
+        for (int r = 0; r < scaled.getHeight(); r++) {
+            for (int c = 0; c < scaled.getWidth(); c++) {
+                if (scaled.getRedChannel()[r][c] < 200) {
+                    scaledLeftEdge[r] = c;
+                    sum += c;
+                    break;
+                }
+            }
+        }
+
+        avg = sum / projected.getHeight();
+
+        for (int r = 0; r < projected.getHeight(); r++) {
+            scaledLeftEdge[r] -= avg;
+        }
+
+        for (int r = 0; r < projected.getHeight(); r++) {
+            distScore += Math.abs(projectedLeftEdge[r] - scaledLeftEdge[r]) * 3;
+        }
+
+        return distScore;
     }
 
-    private DImage blurImage(DImage img) {
-        DImage blurred = new DImage(img.getWidth(), img.getHeight());
-        short[][] red = new short[img.getHeight()][img.getWidth()];
-        short[][] green = new short[img.getHeight()][img.getWidth()];
-        short[][] blue = new short[img.getHeight()][img.getWidth()];
+    private double kNeighborDist(DImage scaled) {
+        short[][] red = scaled.getRedChannel();
+        short[][] green = scaled.getGreenChannel();
+        short[][] blue = scaled.getBlueChannel();
 
-        for (int r = 0; r < img.getHeight(); r++) {
-            for (int c = 0; c < img.getWidth(); c++) {
+        int sum = 0;
+        for (int r = 0; r < projected.getHeight(); r++) {
+            for (int c = 0; c < projected.getWidth(); c++) {
+                double distR = Math.abs(projected.getRedChannel()[r][c] - red[r][c]);
+                double distG = Math.abs(projected.getGreenChannel()[r][c] - green[r][c]);
+                double distB = Math.abs(projected.getBlueChannel()[r][c] - blue[r][c]);
+
+                double avgDist = (distR + distG + distB) / 3.0;
+
+                sum += (int) (avgDist * avgDist);
+            }
+        }
+
+        return Math.sqrt(sum);
+    }
+
+    private DImage blurImage(DImage img, int n) {
+        // Use convolution to blur the image
+        short[][] red = img.getRedChannel();
+        short[][] green = img.getGreenChannel();
+        short[][] blue = img.getBlueChannel();
+
+        short[][] newRed = new short[red.length][red[0].length];
+        short[][] newGreen = new short[green.length][green[0].length];
+        short[][] newBlue = new short[blue.length][blue[0].length];
+
+        for (int r = 0; r < red.length; r++) {
+            for (int c = 0; c < red[r].length; c++) {
+                int sumR = 0, sumG = 0, sumB = 0;
                 int count = 0;
-                int sumR = 0;
-                int sumG = 0;
-                int sumB = 0;
 
-                for (int dr = -1; dr <= 1; dr++) {
-                    for (int dc = -1; dc <= 1; dc++) {
+                for (int dr = -n; dr <= n; dr++) {
+                    for (int dc = -n; dc <= n; dc++) {
                         int newR = r + dr;
                         int newC = c + dc;
 
-                        if (newR >= 0 && newR < img.getHeight() && newC >= 0 && newC < img.getWidth()) {
+                        if (newR >= 0 && newR < red.length && newC >= 0 && newC < red[r].length) {
+                            sumR += red[newR][newC];
+                            sumG += green[newR][newC];
+                            sumB += blue[newR][newC];
                             count++;
-                            sumR += img.getRedChannel()[newR][newC];
-                            sumG += img.getGreenChannel()[newR][newC];
-                            sumB += img.getBlueChannel()[newR][newC];
                         }
                     }
                 }
 
-                red[r][c] = (short) (sumR / count);
-                green[r][c] = (short) (sumG / count);
-                blue[r][c] = (short) (sumB / count);
+                newRed[r][c] = (short) (sumR / count);
+                newGreen[r][c] = (short) (sumG / count);
+                newBlue[r][c] = (short) (sumB / count);
             }
         }
 
-        blurred.setRedChannel(red);
-        blurred.setGreenChannel(green);
-        blurred.setBlueChannel(blue);
-
+        DImage blurred = new DImage(img.getWidth(), img.getHeight());
+        blurred.setRedChannel(newRed);
+        blurred.setGreenChannel(newGreen);
+        blurred.setBlueChannel(newBlue);
         return blurred;
     }
 
@@ -262,16 +323,16 @@ public class Card {
         };
     }
 
-    public static DImage normalizeTo(DImage dbImage, short[] projectedAvg) {
-        short[][] red = dbImage.getRedChannel();
-        short[][] green = dbImage.getGreenChannel();
-        short[][] blue = dbImage.getBlueChannel();
+    public static DImage normalizeTo(DImage img, short[] projectedAvg) {
+        short[][] red = img.getRedChannel();
+        short[][] green = img.getGreenChannel();
+        short[][] blue = img.getBlueChannel();
 
-        int width = dbImage.getWidth();
-        int height = dbImage.getHeight();
+        int width = img.getWidth();
+        int height = img.getHeight();
 
         // Compute average color of database image
-        short[] dbAvg = computeAverageColor(dbImage);
+        short[] dbAvg = computeAverageColor(img);
 
         // Compute scale factors to match projected image's average color
         double scaleR = projectedAvg[0] / (double) dbAvg[0];
