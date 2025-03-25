@@ -7,34 +7,34 @@ import core.DImage;
 import java.util.ArrayList;
 
 public class SetFinder implements PixelFilter, Interactive {
-    public static int colorThreshold = 180;
+    public static int colorThreshold;
     public static final int BLOB_MIN_SIZE = 5000;
     public static final double QUADRILATERAL_THRESHOLD = 0.5;
 
     @Override
     public DImage processImage(DImage img) {
+        //img = scaleImageToWidth(img, 624);
+
         DImage original = new DImage(img.getWidth(), img.getHeight());
         original.setColorChannels(img.getRedChannel().clone(), img.getGreenChannel().clone(), img.getBlueChannel().clone());
 
-//        // Find the average brightness of the image
-//        double avgBrightness = 0;
-//        short[][] red = img.getRedChannel();
-//        short[][] green = img.getGreenChannel();
-//        short[][] blue = img.getBlueChannel();
-//
-//        for (int i = 0; i < red.length; i++) {
-//            for (int j = 0; j < red[i].length; j++) {
-//                avgBrightness += red[i][j] + green[i][j] + blue[i][j];
-//            }
-//        }
-//
-//        avgBrightness /= red.length * red[0].length * 3;
-//
-//        System.out.println("Average brightness: " + avgBrightness);
-//
-//        colorThreshold = (int) (avgBrightness * 0.37 + 124);
+        // Find the average brightness of the image
+        double avgBrightness = 0;
+        short[][] red = img.getRedChannel();
+        short[][] green = img.getGreenChannel();
+        short[][] blue = img.getBlueChannel();
 
-        Card.normalizeTo(img, new short[]{245, 245, 245});
+        for (int i = 0; i < red.length; i++) {
+            for (int j = 0; j < red[i].length; j++) {
+                avgBrightness += red[i][j] + green[i][j] + blue[i][j];
+            }
+        }
+
+        avgBrightness /= red.length * red[0].length * 3;
+
+        System.out.println("Average brightness: " + avgBrightness);
+
+        colorThreshold = (int) (avgBrightness * 0.37 + 124);
 
         boolean[][] thresholdMask;
 
@@ -58,10 +58,6 @@ public class SetFinder implements PixelFilter, Interactive {
         for (Card card : cards) {
             cardImages.add(card.getProjected());
             matchedImages.add(card.getMatchedImages(5));
-        }
-
-        if (cardImages.isEmpty()) {
-            return img;
         }
 
         DImage results = new DImage(cardImages.get(0).getWidth() * (1 + matchedImages.get(0).size()), cardImages.get(0).getHeight() * cardImages.size());
@@ -160,6 +156,37 @@ public class SetFinder implements PixelFilter, Interactive {
         }
 
         img.setColorChannels(red, green, blue);
+    }
+
+    private DImage scaleImageToWidth (DImage img, int w) {
+        double aspectRatio = (double) img.getHeight() / img.getWidth();
+        int h = (int) (w * aspectRatio);
+        return scaleImage(img, w, h);
+    }
+
+    private DImage scaleImage (DImage img, int w, int h) {
+        DImage scaled = new DImage(w, h);
+        short[][] red = new short[h][w];
+        short[][] green = new short[h][w];
+        short[][] blue = new short[h][w];
+
+        for (int r = 0; r < h; r++) {
+            for (int c = 0; c < w; c++) {
+                int srcR = (int) ((double) r / h * img.getHeight());
+                int srcC = (int) ((double) c / w * img.getWidth());
+
+                red[r][c] = img.getRedChannel()[srcR][srcC];
+                green[r][c] = img.getGreenChannel()[srcR][srcC];
+                blue[r][c] = img.getBlueChannel()[srcR][srcC];
+
+                System.out.println("r: " + r + " c: " + c + " srcR: " + srcR + " srcC: " + srcC);
+            }
+        }
+
+        scaled.setRedChannel(red);
+        scaled.setGreenChannel(green);
+        scaled.setBlueChannel(blue);
+        return scaled;
     }
 
     @Override
